@@ -162,6 +162,7 @@
     <nav>
         <a href="#home">Home</a>
         <a href="#gallery">Gallery</a>
+        <a href="#casino">Casino</a>
         <a href="#contact">Contact</a>
     </nav>
 
@@ -169,6 +170,54 @@
         <div class="hero-content">
             <h1>My Photography</h1>
             <p>Capturing moments that last forever</p>
+        </div>
+    </section>
+
+    <!-- Casino section: Slot + Blackjack -->
+    <section class="casino" id="casino" style="padding:50px 10%;">
+        <h2 style="margin-bottom:16px;">Casino Corner</h2>
+        <div class="casino-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+            <!-- Slot Machine -->
+            <div class="slot" style="background:#fff;padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+                <h3>Slot Machine</h3>
+                <div class="slot-reels" style="display:flex;gap:8px;justify-content:center;margin:12px 0;font-size:40px;">
+                    <div id="reel1">🍒</div>
+                    <div id="reel2">🍋</div>
+                    <div id="reel3">🔔</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;">
+                    <button id="spinBtn" style="padding:8px 12px;border-radius:8px;background:#0066ff;color:#fff;border:none;cursor:pointer;">Spin</button>
+                    <div id="slotResult" style="min-width:140px;text-align:center;font-weight:600;">Good luck!</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div>Credits: <span id="slotCredits">100</span></div>
+                    <div>Bet: <input id="slotBet" type="number" value="5" min="1" style="width:60px;padding:4px;border-radius:6px;border:1px solid #ddd;"/></div>
+                </div>
+            </div>
+
+            <!-- Blackjack -->
+            <div class="blackjack" style="background:#fff;padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+                <h3>Blackjack (Single-player)</h3>
+                <div style="margin-bottom:8px;">Credits: <span id="bjCredits">100</span> | Bet: <input id="bjBet" type="number" value="10" min="1" style="width:80px;padding:4px;border-radius:6px;border:1px solid #ddd;"/></div>
+                <div style="display:flex;gap:12px;">
+                    <div style="flex:1">
+                        <div style="font-weight:700">Dealer</div>
+                        <div id="dealerCards" style="min-height:40px;margin:6px 0"></div>
+                        <div id="dealerScore"></div>
+                    </div>
+                    <div style="flex:1">
+                        <div style="font-weight:700">Player</div>
+                        <div id="playerCards" style="min-height:40px;margin:6px 0"></div>
+                        <div id="playerScore"></div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button id="bjDeal" style="padding:8px;border-radius:8px;background:#06b; color:#fff;border:none;cursor:pointer;">Deal</button>
+                    <button id="bjHit" style="padding:8px;border-radius:8px;background:#0a0;color:#fff;border:none;cursor:pointer;" disabled>Hit</button>
+                    <button id="bjStand" style="padding:8px;border-radius:8px;background:#a60;color:#fff;border:none;cursor:pointer;" disabled>Stand</button>
+                    <div id="bjMessage" style="margin-left:8px;font-weight:600;align-self:center"></div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -368,6 +417,182 @@
                 appendMessage('assistant', 'Tip: This demo expects a POST /api/chat endpoint. If not available you will see a fallback.');
             }
         });
+
+        // ----------------- Casino games logic -----------------
+        // Slot machine
+        (function(){
+            const symbols = ['🍒','🍋','🔔','⭐','7️⃣','💎'];
+            const reel1 = document.getElementById('reel1');
+            const reel2 = document.getElementById('reel2');
+            const reel3 = document.getElementById('reel3');
+            const spinBtn = document.getElementById('spinBtn');
+            const slotResult = document.getElementById('slotResult');
+            const slotCredits = document.getElementById('slotCredits');
+            const slotBet = document.getElementById('slotBet');
+
+            function randSymbol(){ return symbols[Math.floor(Math.random()*symbols.length)]; }
+
+            function updateCredits(delta){
+                slotCredits.textContent = Math.max(0, parseInt(slotCredits.textContent || '0') + delta);
+            }
+
+            let spinning = false;
+            spinBtn.addEventListener('click', () => {
+                if (spinning) return;
+                const bet = Math.max(1, Math.floor(Number(slotBet.value) || 1));
+                if (parseInt(slotCredits.textContent) < bet) {
+                    slotResult.textContent = 'Not enough credits';
+                    return;
+                }
+                updateCredits(-bet);
+                spinning = true;
+                slotResult.textContent = 'Spinning...';
+                const intervals = [50,60,70,90,120,180,260];
+                const final = [randSymbol(), randSymbol(), randSymbol()];
+                let i = 0;
+                const ints = symbols.map(() => null);
+                // animate each reel with staggered stop
+                function spinReel(reel, idx, stopAfter){
+                    let ticks = 0;
+                    ints[idx] = setInterval(()=>{
+                        reel.textContent = randSymbol();
+                        ticks++;
+                        if (ticks > stopAfter){
+                            clearInterval(ints[idx]);
+                            reel.textContent = final[idx];
+                            // when all stopped, evaluate
+                            if (ints.every(v=>v===null || v===undefined)) {
+                                evaluate(final, bet);
+                                spinning = false;
+                            }
+                        }
+                    }, 60 + idx*30);
+                }
+
+                spinReel(reel1,0,10 + Math.floor(Math.random()*6));
+                spinReel(reel2,1,14 + Math.floor(Math.random()*8));
+                spinReel(reel3,2,18 + Math.floor(Math.random()*10));
+            });
+
+            function evaluate(final, bet){
+                const [a,b,c] = final;
+                if (a===b && b===c){
+                    // three of a kind
+                    const win = bet * 10;
+                    updateCredits(win);
+                    slotResult.textContent = `JACKPOT! +${win}`;
+                } else if (a===b || b===c || a===c){
+                    const win = bet * 2;
+                    updateCredits(win);
+                    slotResult.textContent = `Nice! +${win}`;
+                } else {
+                    slotResult.textContent = 'No luck — try again!';
+                }
+            }
+        })();
+
+        // Blackjack (very small/simple implementation)
+        (function(){
+            const bjCredits = document.getElementById('bjCredits');
+            const bjBet = document.getElementById('bjBet');
+            const dealerCards = document.getElementById('dealerCards');
+            const playerCards = document.getElementById('playerCards');
+            const dealerScore = document.getElementById('dealerScore');
+            const playerScore = document.getElementById('playerScore');
+            const bjDeal = document.getElementById('bjDeal');
+            const bjHit = document.getElementById('bjHit');
+            const bjStand = document.getElementById('bjStand');
+            const bjMessage = document.getElementById('bjMessage');
+
+            function createDeck(){
+                const suits = ['♠','♥','♦','♣'];
+                const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+                const deck = [];
+                suits.forEach(s=>ranks.forEach(r=>deck.push(r+s)));
+                return deck;
+            }
+
+            function shuffle(a){
+                for(let i=a.length-1;i>0;i--){
+                    const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];
+                }
+            }
+
+            function cardValue(card){
+                const r = card.slice(0, -1);
+                if (r==='A') return 11;
+                if (['K','Q','J'].includes(r)) return 10;
+                return Number(r);
+            }
+
+            function scoreHand(hand){
+                let sum=0;let aces=0;
+                hand.forEach(c=>{const v=cardValue(c);sum+=v;if (c.startsWith('A')) aces++;});
+                while(sum>21 && aces>0){sum-=10;aces--;}
+                return sum;
+            }
+
+            let deck=[], playerHand=[], dealerHand=[], inRound=false;
+
+            function resetDisplay(){
+                dealerCards.textContent='';playerCards.textContent='';dealerScore.textContent='';playerScore.textContent='';bjMessage.textContent='';
+            }
+
+            function renderHands(hideDealerSecond){
+                dealerCards.textContent='';dealerHand.forEach((c,i)=>{
+                    const span=document.createElement('span');span.textContent = (i===1 && hideDealerSecond)?'🂠':c;span.style.marginRight='6px';dealerCards.appendChild(span);
+                });
+                playerCards.textContent='';playerHand.forEach(c=>{const span=document.createElement('span');span.textContent=c;span.style.marginRight='6px';playerCards.appendChild(span);});
+                playerScore.textContent = `Score: ${scoreHand(playerHand)}`;
+                if (!hideDealerSecond) dealerScore.textContent = `Score: ${scoreHand(dealerHand)}`; else dealerScore.textContent = '';
+            }
+
+            function endRound(msg, payout){
+                inRound=false;bjHit.disabled=true;bjStand.disabled=true;bjDeal.disabled=false; if(payout) bjCredits.textContent = Math.max(0, parseInt(bjCredits.textContent||'0')+payout); bjMessage.textContent = msg;
+            }
+
+            bjDeal.addEventListener('click', ()=>{
+                const bet = Math.max(1, Math.floor(Number(bjBet.value)||1));
+                if (parseInt(bjCredits.textContent) < bet){ bjMessage.textContent='Not enough credits'; return; }
+                // init
+                deck = createDeck(); shuffle(deck);
+                playerHand = [deck.pop(), deck.pop()];
+                dealerHand = [deck.pop(), deck.pop()];
+                inRound=true; bjDeal.disabled=true; bjHit.disabled=false; bjStand.disabled=false; bjMessage.textContent='';
+                bjCredits.textContent = parseInt(bjCredits.textContent) - bet;
+                renderHands(true);
+                // check blackjack
+                const pScore = scoreHand(playerHand); const dScore = scoreHand(dealerHand);
+                if (pScore===21){
+                    // instant win unless dealer has blackjack
+                    if (dScore===21) endRound('Push (both blackjack)', bet);
+                    else endRound('Blackjack! You win 1.5x', Math.floor(bet*2.5));
+                }
+            });
+
+            bjHit.addEventListener('click', ()=>{
+                if (!inRound) return;
+                playerHand.push(deck.pop()); renderHands(true);
+                const s = scoreHand(playerHand);
+                if (s>21){ endRound('Busted! You lose.', 0); }
+            });
+
+            bjStand.addEventListener('click', ()=>{
+                if (!inRound) return;
+                // dealer plays
+                renderHands(false);
+                while(scoreHand(dealerHand) < 17){ dealerHand.push(deck.pop()); }
+                renderHands(false);
+                const p = scoreHand(playerHand); const d = scoreHand(dealerHand);
+                const bet = Math.max(1, Math.floor(Number(bjBet.value)||1));
+                if (d>21 || p> d){ endRound('You win!', bet*2); }
+                else if (p===d){ endRound('Push (tie)', bet); }
+                else { endRound('Dealer wins', 0); }
+            });
+
+            // new page load: ensure buttons correct
+            resetDisplay();
+        })();
     })();
     </script>
 </body>
