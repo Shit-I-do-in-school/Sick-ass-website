@@ -44,6 +44,53 @@
             transition: transform 0.3s;
         }
 
+            /* Make gallery images clickable and add a lightbox overlay */
+            .gallery img { cursor: pointer; }
+
+            .lightbox-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.9);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                padding: 20px;
+            }
+
+            .lightbox-overlay.active { display: flex; }
+
+            .lightbox-content {
+                max-width: 95vw;
+                max-height: 95vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+            }
+
+            .lightbox-img {
+                max-width: 100%;
+                max-height: 100%;
+                border-radius: 8px;
+                box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            }
+
+            .lightbox-close, .lightbox-prev, .lightbox-next {
+                position: absolute;
+                background: rgba(0,0,0,0.5);
+                color: #fff;
+                border: none;
+                padding: 10px 12px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 18px;
+            }
+
+            .lightbox-close { top: 12px; right: 12px; }
+            .lightbox-prev { left: 12px; top: 50%; transform: translateY(-50%); }
+            .lightbox-next { right: 12px; top: 50%; transform: translateY(-50%); }
+
         .gallery img:hover {
             transform: scale(1.05);
         }
@@ -245,6 +292,16 @@
         </div>
     </section>
 
+    <!-- Lightbox overlay for gallery images -->
+    <div class="lightbox-overlay" id="lightbox">
+        <div class="lightbox-content">
+            <button class="lightbox-close" id="lightboxClose">✕</button>
+            <button class="lightbox-prev" id="lightboxPrev">‹</button>
+            <img src="" alt="" class="lightbox-img" id="lightboxImg">
+            <button class="lightbox-next" id="lightboxNext">›</button>
+        </div>
+    </div>
+
     <section class="gallery" id="gallery">
         <!-- Replace src with your image paths -->
         <img src="image/Discord_Dw5YGGzyuM.png" alt="Photo 1">
@@ -441,6 +498,44 @@
                 appendMessage('assistant', 'Tip: This demo expects a POST /api/chat endpoint. If not available you will see a fallback.');
             }
         });
+
+        // ----------------- Lightbox for gallery images -----------------
+        (function(){
+            const galleryImgs = Array.from(document.querySelectorAll('.gallery img'));
+            const overlay = document.getElementById('lightbox');
+            const overlayImg = document.getElementById('lightboxImg');
+            const closeBtn = document.getElementById('lightboxClose');
+            const prevBtn = document.getElementById('lightboxPrev');
+            const nextBtn = document.getElementById('lightboxNext');
+            let current = 0;
+
+            function openAt(index){
+                current = (index + galleryImgs.length) % galleryImgs.length;
+                const img = galleryImgs[current];
+                const src = img.dataset.full || img.src;
+                overlayImg.src = src;
+                overlay.classList.add('active');
+            }
+
+            function close(){ overlay.classList.remove('active'); overlayImg.src = ''; }
+
+            galleryImgs.forEach((img, idx)=>{
+                img.style.cursor = 'pointer';
+                img.addEventListener('click', ()=> openAt(idx));
+            });
+
+            closeBtn.addEventListener('click', close);
+            overlay.addEventListener('click', (e)=>{ if (e.target===overlay) close(); });
+            prevBtn.addEventListener('click', ()=> openAt(current-1));
+            nextBtn.addEventListener('click', ()=> openAt(current+1));
+
+            document.addEventListener('keydown', (e)=>{
+                if (!overlay.classList.contains('active')) return;
+                if (e.key === 'Escape') close();
+                if (e.key === 'ArrowLeft') openAt(current-1);
+                if (e.key === 'ArrowRight') openAt(current+1);
+            });
+        })();
 
         // ----------------- Casino games logic -----------------
         // Slot machine
