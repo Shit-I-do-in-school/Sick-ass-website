@@ -156,6 +156,15 @@
         @media (max-width: 480px) {
             .chat-panel { height: 60vh; width: 92vw; }
         }
+        /* Casino theme: black & red accents */
+        .casino { background: #0b0b0b; color: #f7f7f7; }
+        .casino h2, .casino h3 { color: #ffdddd; }
+        .casino .casino-grid > div { background: #111; border: 1px solid #330000; color: #fff; }
+        .casino .slot-reels { background: #060606; padding: 10px; border-radius: 8px; }
+        .casino input[type="number"] { background:#111;color:#fff;border:1px solid #333 }
+        .casino button { background: #b30000; color: #fff; border: none; cursor: pointer; }
+        .casino button[disabled] { opacity: 0.5; cursor: not-allowed }
+        .casino .slot-result { color:#ffd700; font-weight:700 }
     </style>
 </head>
 <body>
@@ -214,6 +223,8 @@
                 <div style="margin-top:10px;display:flex;gap:8px;">
                     <button id="bjDeal" style="padding:8px;border-radius:8px;background:#06b; color:#fff;border:none;cursor:pointer;">Deal</button>
                     <button id="bjHit" style="padding:8px;border-radius:8px;background:#0a0;color:#fff;border:none;cursor:pointer;" disabled>Hit</button>
+                    <button id="bjDouble" style="padding:8px;border-radius:8px;background:#c06;color:#fff;border:none;cursor:pointer;" disabled>Double</button>
+                    <button id="bjSplit" style="padding:8px;border-radius:8px;background:#666;color:#fff;border:none;cursor:pointer;" disabled>Split</button>
                     <button id="bjStand" style="padding:8px;border-radius:8px;background:#a60;color:#fff;border:none;cursor:pointer;" disabled>Stand</button>
                     <div id="bjMessage" style="margin-left:8px;font-weight:600;align-self:center"></div>
                 </div>
@@ -491,7 +502,7 @@
             }
         })();
 
-        // Blackjack (very small/simple implementation)
+        // Blackjack (with double and split support)
         (function(){
             const bjCredits = document.getElementById('bjCredits');
             const bjBet = document.getElementById('bjBet');
@@ -501,6 +512,8 @@
             const playerScore = document.getElementById('playerScore');
             const bjDeal = document.getElementById('bjDeal');
             const bjHit = document.getElementById('bjHit');
+            const bjDouble = document.getElementById('bjDouble');
+            const bjSplit = document.getElementById('bjSplit');
             const bjStand = document.getElementById('bjStand');
             const bjMessage = document.getElementById('bjMessage');
 
@@ -532,7 +545,7 @@
                 return sum;
             }
 
-            let deck=[], playerHand=[], dealerHand=[], inRound=false;
+            let deck=[], dealerHand=[], playerHands=[], betsPerHand=[], currentHand=0, inRound=false;
 
             function resetDisplay(){
                 dealerCards.textContent='';playerCards.textContent='';dealerScore.textContent='';playerScore.textContent='';bjMessage.textContent='';
@@ -542,13 +555,39 @@
                 dealerCards.textContent='';dealerHand.forEach((c,i)=>{
                     const span=document.createElement('span');span.textContent = (i===1 && hideDealerSecond)?'🂠':c;span.style.marginRight='6px';dealerCards.appendChild(span);
                 });
-                playerCards.textContent='';playerHand.forEach(c=>{const span=document.createElement('span');span.textContent=c;span.style.marginRight='6px';playerCards.appendChild(span);});
-                playerScore.textContent = `Score: ${scoreHand(playerHand)}`;
+                playerCards.textContent='';
+                playerHands.forEach((hand, idx)=>{
+                    const wrapper = document.createElement('div');
+                    wrapper.style.marginBottom='6px';
+                    wrapper.style.padding = (idx===currentHand && inRound) ? '6px' : '4px';
+                    wrapper.style.border = (idx===currentHand && inRound) ? '2px solid #06b' : '1px dashed #ccc';
+                    wrapper.style.display = 'inline-block';
+                    wrapper.style.marginRight = '8px';
+                    hand.forEach(c=>{const span=document.createElement('span');span.textContent=c;span.style.marginRight='6px';wrapper.appendChild(span);});
+                    const sc = scoreHand(hand);
+                    const scoreSpan = document.createElement('div');scoreSpan.style.fontSize='12px';scoreSpan.textContent = `Score: ${sc}`;wrapper.appendChild(scoreSpan);
+                    playerCards.appendChild(wrapper);
+                });
+                // summary scores
+                playerScore.textContent = playerHands.map((h,i)=>`Hand ${i+1}: ${scoreHand(h)}`).join(' | ');
                 if (!hideDealerSecond) dealerScore.textContent = `Score: ${scoreHand(dealerHand)}`; else dealerScore.textContent = '';
             }
 
-            function endRound(msg, payout){
-                inRound=false;bjHit.disabled=true;bjStand.disabled=true;bjDeal.disabled=false; if(payout) bjCredits.textContent = Math.max(0, parseInt(bjCredits.textContent||'0')+payout); bjMessage.textContent = msg;
+            function endRound(msg, payouts){
+                // payouts: array matching betsPerHand with amount to add to credits
+                inRound=false;bjHit.disabled=true;bjStand.disabled=true;bjDouble.disabled=true;bjSplit.disabled=true;bjDeal.disabled=false;
+                if (Array.isArray(payouts)){
+                    payouts.forEach(p=>{ if(p) bjCredits.textContent = Math.max(0, parseInt(bjCredits.textContent||'0') + p); });
+                } else if (payouts) {
+                    bjCredits.textContent = Math.max(0, parseInt(bjCredits.textContent||'0') + payouts);
+                }
+                bjMessage.textContent = msg;
+            }
+
+            function canSplit(hand){
+                if (!hand || hand.length!==2) return false;
+                const r1 = hand[0].slice(0,-1); const r2 = hand[1].slice(0,-1);
+                return r1===r2;
             }
 
             bjDeal.addEventListener('click', ()=>{
@@ -556,38 +595,113 @@
                 if (parseInt(bjCredits.textContent) < bet){ bjMessage.textContent='Not enough credits'; return; }
                 // init
                 deck = createDeck(); shuffle(deck);
-                playerHand = [deck.pop(), deck.pop()];
+                playerHands = [[deck.pop(), deck.pop()]];
+                betsPerHand = [bet];
                 dealerHand = [deck.pop(), deck.pop()];
-                inRound=true; bjDeal.disabled=true; bjHit.disabled=false; bjStand.disabled=false; bjMessage.textContent='';
+                currentHand = 0;
+                inRound=true; bjDeal.disabled=true; bjHit.disabled=false; bjStand.disabled=false; bjDouble.disabled=false; bjSplit.disabled = canSplit(playerHands[0]) && parseInt(bjCredits.textContent) >= bet; bjMessage.textContent='';
                 bjCredits.textContent = parseInt(bjCredits.textContent) - bet;
                 renderHands(true);
-                // check blackjack
-                const pScore = scoreHand(playerHand); const dScore = scoreHand(dealerHand);
+                // check blackjack for first hand
+                const pScore = scoreHand(playerHands[0]); const dScore = scoreHand(dealerHand);
                 if (pScore===21){
-                    // instant win unless dealer has blackjack
-                    if (dScore===21) endRound('Push (both blackjack)', bet);
-                    else endRound('Blackjack! You win 1.5x', Math.floor(bet*2.5));
+                    if (dScore===21) endRound('Push (both blackjack)', [betsPerHand[0]]);
+                    else endRound('Blackjack! You win 1.5x', [Math.floor(betsPerHand[0]*2.5)]);
                 }
             });
 
             bjHit.addEventListener('click', ()=>{
                 if (!inRound) return;
-                playerHand.push(deck.pop()); renderHands(true);
-                const s = scoreHand(playerHand);
-                if (s>21){ endRound('Busted! You lose.', 0); }
+                playerHands[currentHand].push(deck.pop()); renderHands(true);
+                const s = scoreHand(playerHands[currentHand]);
+                if (s>21){
+                    // move to next hand or finish
+                    if (currentHand < playerHands.length-1){ currentHand++; renderHands(true); }
+                    else { // dealer plays then resolve
+                        // dealer plays
+                        renderHands(false);
+                        while(scoreHand(dealerHand) < 17){ dealerHand.push(deck.pop()); }
+                        renderHands(false);
+                        // determine payouts per hand
+                        const payouts = [];
+                        playerHands.forEach((hand,idx)=>{
+                            const bet = betsPerHand[idx]; const p = scoreHand(hand); const d = scoreHand(dealerHand);
+                            if (p>21) payouts.push(0);
+                            else if (p===21 && hand.length===2) payouts.push(Math.floor(bet*2.5));
+                            else if (d>21 || p> d) payouts.push(bet*2);
+                            else if (p===d) payouts.push(bet);
+                            else payouts.push(0);
+                        });
+                        endRound('Round over', payouts);
+                    }
+                }
+            });
+
+            bjDouble.addEventListener('click', ()=>{
+                if (!inRound) return;
+                const bet = betsPerHand[currentHand] || Math.max(1, Math.floor(Number(bjBet.value)||1));
+                if (parseInt(bjCredits.textContent) < bet){ bjMessage.textContent='Not enough credits to double'; return; }
+                // deduct extra bet
+                bjCredits.textContent = parseInt(bjCredits.textContent) - bet;
+                betsPerHand[currentHand] = bet*2;
+                // deal one card and stand this hand
+                playerHands[currentHand].push(deck.pop()); renderHands(true);
+                const s = scoreHand(playerHands[currentHand]);
+                // move to next hand or dealer plays
+                if (currentHand < playerHands.length-1){ currentHand++; renderHands(true); }
+                else {
+                    // dealer plays
+                    renderHands(false);
+                    while(scoreHand(dealerHand) < 17){ dealerHand.push(deck.pop()); }
+                    renderHands(false);
+                    const payouts = [];
+                    playerHands.forEach((hand,idx)=>{
+                        const origBet = betsPerHand[idx]/2 || betsPerHand[idx];
+                        const betVal = betsPerHand[idx];
+                        const p = scoreHand(hand); const d = scoreHand(dealerHand);
+                        if (p>21) payouts.push(0);
+                        else if (p===21 && hand.length===2) payouts.push(Math.floor(origBet*2.5));
+                        else if (d>21 || p> d) payouts.push(betVal);
+                        else if (p===d) payouts.push(origBet);
+                        else payouts.push(0);
+                    });
+                    endRound('Round over', payouts);
+                }
+            });
+
+            bjSplit.addEventListener('click', ()=>{
+                if (!inRound) return;
+                const hand = playerHands[0];
+                if (!canSplit(hand)){ bjMessage.textContent='Cannot split'; return; }
+                const bet = betsPerHand[0];
+                if (parseInt(bjCredits.textContent) < bet){ bjMessage.textContent='Not enough credits to split'; return; }
+                // perform split: two hands with one card each, then deal one card to each
+                const c1 = hand[0], c2 = hand[1];
+                playerHands = [[c1, deck.pop()], [c2, deck.pop()]];
+                betsPerHand = [bet, bet];
+                bjCredits.textContent = parseInt(bjCredits.textContent) - bet; // deduct second bet
+                currentHand = 0; bjSplit.disabled=true; renderHands(true);
             });
 
             bjStand.addEventListener('click', ()=>{
                 if (!inRound) return;
-                // dealer plays
-                renderHands(false);
-                while(scoreHand(dealerHand) < 17){ dealerHand.push(deck.pop()); }
-                renderHands(false);
-                const p = scoreHand(playerHand); const d = scoreHand(dealerHand);
-                const bet = Math.max(1, Math.floor(Number(bjBet.value)||1));
-                if (d>21 || p> d){ endRound('You win!', bet*2); }
-                else if (p===d){ endRound('Push (tie)', bet); }
-                else { endRound('Dealer wins', 0); }
+                if (currentHand < playerHands.length-1){ currentHand++; renderHands(true); }
+                else {
+                    // dealer plays
+                    renderHands(false);
+                    while(scoreHand(dealerHand) < 17){ dealerHand.push(deck.pop()); }
+                    renderHands(false);
+                    const payouts = [];
+                    playerHands.forEach((hand,idx)=>{
+                        const bet = betsPerHand[idx]; const p = scoreHand(hand); const d = scoreHand(dealerHand);
+                        if (p>21) payouts.push(0);
+                        else if (p===21 && hand.length===2) payouts.push(Math.floor(bet*2.5));
+                        else if (d>21 || p> d) payouts.push(bet*2);
+                        else if (p===d) payouts.push(bet);
+                        else payouts.push(0);
+                    });
+                    endRound('Round over', payouts);
+                }
             });
 
             // new page load: ensure buttons correct
