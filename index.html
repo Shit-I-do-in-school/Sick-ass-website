@@ -459,15 +459,26 @@
                     return mockResponses[Math.floor(Math.random() * mockResponses.length)];
                 }
 
+        // Toggle the chat panel open/closed with the same button
         chatToggle.addEventListener('click', () => {
-            chatPanel.hidden = false;
-            chatToggle.style.display = 'none';
-            chatInput.focus();
+            if (chatPanel.hidden) {
+                chatPanel.hidden = false;
+                chatToggle.textContent = 'Close';
+                chatToggle.setAttribute('aria-label', 'Close chat');
+                chatInput.focus();
+            } else {
+                chatPanel.hidden = true;
+                chatToggle.textContent = 'Chat';
+                chatToggle.setAttribute('aria-label', 'Open chat');
+            }
         });
 
+        // Header close button also closes and restores toggle label
         chatClose.addEventListener('click', () => {
             chatPanel.hidden = true;
-            chatToggle.style.display = 'inline-block';
+            chatToggle.textContent = 'Chat';
+            chatToggle.setAttribute('aria-label', 'Open chat');
+            chatToggle.focus();
         });
 
         chatForm.addEventListener('submit', async function(e) {
