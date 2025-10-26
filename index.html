@@ -161,7 +161,13 @@
         .casino h2, .casino h3 { color: #ffdddd; }
         .casino .casino-grid > div { background: #111; border: 1px solid #330000; color: #fff; }
         .casino .slot-reels { background: #060606; padding: 10px; border-radius: 8px; }
-        .casino input[type="number"] { background:#111;color:#fff;border:1px solid #333 }
+        .casino input[type="number"] { background:#111;color:#ff3333;border:1px solid #333 }
+        /* Make credit & score numbers red for casino theme */
+        .casino #slotCredits, .casino #bjCredits, .casino #playerScore, .casino #dealerScore, .casino #slotResult {
+            color: #ff3333; font-weight:700;
+        }
+        /* Make bet inputs/text red */
+        .casino #slotBet, .casino #bjBet { color: #ff3333; font-weight:700 }
         .casino button { background: #b30000; color: #fff; border: none; cursor: pointer; }
         .casino button[disabled] { opacity: 0.5; cursor: not-allowed }
         .casino .slot-result { color:#ffd700; font-weight:700 }
