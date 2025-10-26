@@ -161,6 +161,13 @@
         .casino h2, .casino h3 { color: #ff3333; }
         .casino .casino-grid > div { background: #111; border: 1px solid #330000; color: #fff; }
         .casino .slot-reels { background: #060606; padding: 10px; border-radius: 8px; }
+        .casino .slot-reels .reel { display:flex;align-items:center;justify-content:center;width:72px;height:72px;background:#111;border-radius:8px;font-size:40px; }
+        .casino .slot-reels .reel.spinning { animation: reel-spin 0.18s linear infinite; transform-origin:center; }
+        @keyframes reel-spin {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-6px) scale(1.05); }
+            100% { transform: translateY(0) scale(1); }
+        }
         .casino input[type="number"] { background:#111;color:#ff3333;border:1px solid #333 }
         /* Make credit & score numbers red for casino theme */
         .casino #slotCredits, .casino #bjCredits, .casino #playerScore, .casino #dealerScore, .casino #slotResult {
@@ -196,9 +203,9 @@
             <div class="slot" style="background:#6e6e6e;padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
                 <h3>Slot Machine</h3>
                 <div class="slot-reels" style="display:flex;gap:8px;justify-content:center;margin:12px 0;font-size:40px;">
-                    <div id="reel1">🍒</div>
-                    <div id="reel2">🍋</div>
-                    <div id="reel3">🔔</div>
+                    <div id="reel1" class="reel">🍒</div>
+                    <div id="reel2" class="reel">🍋</div>
+                    <div id="reel3" class="reel">🔔</div>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:12px;">
                     <button id="spinBtn" style="padding:8px 12px;border-radius:8px;background:#0066ff;color:#fff;border:none;cursor:pointer;">Spin</button>
@@ -240,9 +247,9 @@
 
     <section class="gallery" id="gallery">
         <!-- Replace src with your image paths -->
-        <img src="image1.jpg" alt="Photo 1">
-        <img src="image2.jpg" alt="Photo 2">
-        <img src="image3.jpg" alt="Photo 3">
+        <img src="\\image\Discord_Dw5YGGzyuM.png" alt="Photo 1">
+        <img src="\\image\opera_TSqOY7F61O.png" alt="Photo 2">
+        <img src="\\image/gifs/ezgif.com-gif-maker_4.gif" alt="Photo 3">
         <img src="image4.jpg" alt="Photo 4">
         <img src="image5.jpg" alt="Photo 5">
         <img src="image6.jpg" alt="Photo 6">
@@ -447,6 +454,34 @@
             const slotCredits = document.getElementById('slotCredits');
             const slotBet = document.getElementById('slotBet');
 
+            // Small WebAudio helpers for sounds (graceful if not supported)
+            let audioCtx = null;
+            function ensureAudio(){
+                if (audioCtx) return true;
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return true; } catch(e){ return false; }
+            }
+
+            function playTone(freq=440, duration=0.08, type='sine', vol=0.08){
+                if (!ensureAudio()) return;
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = type; o.frequency.value = freq;
+                g.gain.value = vol;
+                o.connect(g); g.connect(audioCtx.destination);
+                o.start();
+                setTimeout(()=>{ o.stop(); g.disconnect(); o.disconnect(); }, duration*1000);
+            }
+
+            function playTick(){ playTone(900, 0.04, 'square', 0.06); }
+            function playStart(){ playTone(240, 0.06, 'sine', 0.06); }
+            function playLose(){ playTone(160, 0.12, 'triangle', 0.06); }
+            function playWin(){
+                if (!ensureAudio()) return;
+                // simple jingle
+                const seq = [880, 660, 990];
+                seq.forEach((f,i)=> setTimeout(()=> playTone(f, 0.12, 'sine', 0.08), i*150));
+            }
+
             function randSymbol(){ return symbols[Math.floor(Math.random()*symbols.length)]; }
 
             function updateCredits(delta){
@@ -464,12 +499,15 @@
                 updateCredits(-bet);
                 spinning = true;
                 slotResult.textContent = 'Spinning...';
+                playStart();
                 const intervals = [50,60,70,90,120,180,260];
                 const final = [randSymbol(), randSymbol(), randSymbol()];
                 let i = 0;
                 const ints = symbols.map(() => null);
                 // animate each reel with staggered stop
                 function spinReel(reel, idx, stopAfter){
+                    // add visual spinning class
+                    try{ reel.classList.add('spinning'); } catch(e){}
                     let ticks = 0;
                     ints[idx] = setInterval(()=>{
                         reel.textContent = randSymbol();
@@ -478,7 +516,10 @@
                             clearInterval(ints[idx]);
                             // mark this reel as stopped so we can detect when all reels stopped
                             ints[idx] = null;
+                            // stop visual spinning and set final symbol
+                            try{ reel.classList.remove('spinning'); } catch(e){}
                             reel.textContent = final[idx];
+                            playTick();
                             // when all stopped, evaluate
                             if (ints.every(v=>v===null)) {
                                 evaluate(final, bet);
@@ -500,12 +541,15 @@
                     const win = bet * 10;
                     updateCredits(win);
                     slotResult.textContent = `JACKPOT! +${win}`;
+                    try{ playWin(); } catch(e){}
                 } else if (a===b || b===c || a===c){
                     const win = bet * 2;
                     updateCredits(win);
                     slotResult.textContent = `Nice! +${win}`;
+                    try{ playWin(); } catch(e){}
                 } else {
                     slotResult.textContent = 'No luck — try again!';
+                    try{ playLose(); } catch(e){}
                 }
             }
         })();
