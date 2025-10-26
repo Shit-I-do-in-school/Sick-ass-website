@@ -140,6 +140,12 @@
             flex-direction: column;
         }
 
+        /* Ensure the chat panel shows/hides reliably with a class on the widget */
+        .chat-widget .chat-panel { display: none; }
+        .chat-widget.open .chat-panel { display: flex; }
+        .chat-widget .chat-toggle { display: inline-block; }
+        .chat-widget.open .chat-toggle { background: #ff3333; }
+
         .chat-header {
             background: #0f172a;
             color: white;
@@ -459,27 +465,28 @@
                     return mockResponses[Math.floor(Math.random() * mockResponses.length)];
                 }
 
-        // Toggle the chat panel open/closed with the same button
+        // Robust toggle: add/remove `open` class on the widget so CSS controls visibility
+        const chatWidgetEl = document.getElementById('chatWidget');
+        function openChat(){
+            chatWidgetEl.classList.add('open');
+            chatPanel.hidden = false;
+            chatToggle.setAttribute('aria-expanded','true');
+            chatToggle.setAttribute('aria-label','Close chat');
+            chatInput.focus();
+        }
+        function closeChat(){
+            chatWidgetEl.classList.remove('open');
+            chatPanel.hidden = true;
+            chatToggle.setAttribute('aria-expanded','false');
+            chatToggle.setAttribute('aria-label','Open chat');
+            chatToggle.focus();
+        }
+
         chatToggle.addEventListener('click', () => {
-            if (chatPanel.hidden) {
-                chatPanel.hidden = false;
-                chatToggle.textContent = 'Close';
-                chatToggle.setAttribute('aria-label', 'Close chat');
-                chatInput.focus();
-            } else {
-                chatPanel.hidden = true;
-                chatToggle.textContent = 'Chat';
-                chatToggle.setAttribute('aria-label', 'Open chat');
-            }
+            if (chatWidgetEl.classList.contains('open')) closeChat(); else openChat();
         });
 
-        // Header close button also closes and restores toggle label
-        chatClose.addEventListener('click', () => {
-            chatPanel.hidden = true;
-            chatToggle.textContent = 'Chat';
-            chatToggle.setAttribute('aria-label', 'Open chat');
-            chatToggle.focus();
-        });
+        chatClose.addEventListener('click', () => { closeChat(); });
 
         chatForm.addEventListener('submit', async function(e) {
             e.preventDefault();
